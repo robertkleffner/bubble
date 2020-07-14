@@ -1,5 +1,7 @@
 #lang br/quicklang
 
+(require uuid)
+
 (provide cons)
 (provide quote)
 
@@ -397,38 +399,126 @@
      (machine-instrs m)
      (continuation-resume cont))))
 
+
+
+(provide shuffle)
+(define (shuffle count . indices)
+  (λ (m)
+    (define items (take (machine-stack m) count))
+    (machine
+     (append (for/list ([i indices]) (list-ref items i))
+             (drop (machine-stack m) count))
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (add1 (machine-instr-ptr m)))))
+
+
+
+(provide jump-if)
+(define (jump-if target)
+  (λ (m)
+    (machine
+     (machine-stack m)
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (if (first (machine-stack m))
+         target
+         (add1 (machine-instr-ptr m))))))
+
+(provide jump-if-not)
+(define (jump-if-not target)
+  (λ (m)
+    (machine
+     (machine-stack m)
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (if (not (first (machine-stack m)))
+         target
+         (add1 (machine-instr-ptr m))))))
+
+
+
+(provide newref)
+(define (newref)
+  (λ (m)
+    (define ref (uuid-symbol))
+    (machine
+     (cons ref (rest (machine-stack m)))
+     (machine-frames m)
+     (hash-set (machine-heap m) ref (first (machine-stack m)))
+     (machine-instrs m)
+     (add1 (machine-instr-ptr m)))))
+
+(provide getref)
+(define (getref)
+  (λ (m)
+    (machine
+     (cons (hash-ref (machine-heap m) (first (machine-stack m))) (machine-stack m))
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (add1 (machine-instr-ptr m)))))
+
+(provide putref)
+(define (putref)
+  (λ (m)
+    (machine
+     (rest (machine-stack m))
+     (machine-frames m)
+     (hash-set (machine-heap m) (second (machine-stack m)) (first (machine-stack m)))
+     (machine-instrs m)
+     (add1 (machine-instr-ptr m)))))
+
         
 
 
 
+(provide bool-and)
+(define (bool-and)
+  (binary-instr (λ (l r) (and l r))))
+
+(provide bool-or)
+(define (bool-or)
+  (binary-instr (λ (l r) (or l r))))
+
+(provide bool-not)
+(define (bool-not)
+  (unary-instr not))
+
 (provide add-i32)
 (define (add-i32)
-  (lambda (m)
-    (define old-stack (machine-stack m))
-    (machine
-     (cons (+ (car old-stack) (cadr old-stack)) (cddr old-stack))
-     (machine-frames m)
-     (machine-heap m)
-     (machine-instrs m)
-     (add1 (machine-instr-ptr m)))))
+  (binary-instr +))
 
 (provide sub-i32)
 (define (sub-i32)
-  (lambda (m)
+  (binary-instr -))
+
+(provide mul-i32)
+(define (mul-i32)
+  (binary-instr *))
+
+(provide div-i32)
+(define (div-i32)
+  (binary-instr /))
+
+(define (unary-instr op)
+  (λ (m)
     (define old-stack (machine-stack m))
     (machine
-     (cons (- (car old-stack) (cadr old-stack)) (cddr old-stack))
+     (cons (op (car old-stack)) (cdr old-stack))
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
      (add1 (machine-instr-ptr m)))))
 
-(provide div-i32)
-(define (div-i32)
-  (lambda (m)
+(define (binary-instr op)
+  (λ (m)
     (define old-stack (machine-stack m))
     (machine
-     (cons (/ (car old-stack) (cadr old-stack)) (cddr old-stack))
+     (cons (op (car old-stack) (cadr old-stack)) (cddr old-stack))
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
