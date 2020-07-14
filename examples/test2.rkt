@@ -1,7 +1,7 @@
 #lang s-exp "../tea-two.rkt"
 
 (call 2)
-(goto 19)
+(jump 19)
 
 (push 1)
 (push 2)

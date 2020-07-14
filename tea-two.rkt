@@ -1,6 +1,7 @@
 #lang br/quicklang
 
 (provide cons)
+(provide quote)
 
 (struct machine
   (stack ;; list value
@@ -20,15 +21,13 @@
 (define (print-frames fs)
   (display "(")
   (for ([f fs])
-    (display "(")
     (cond
       [(var-frame? f)
        (display (var-frame-vars f))]
       [(fun-frame? f)
        (display `(f ,(fun-frame-ret-instr-ptr f) ,(fun-frame-vars f)))]
       [else
-       (display f)])
-    (display ")"))
+       (display f)]))
   (display ")"))
 
 (struct var-frame
@@ -130,8 +129,8 @@
      (machine-instrs m)
      (add1 (machine-instr-ptr m)))))
 
-(provide goto)
-(define (goto target)
+(provide jump)
+(define (jump target)
   (λ (m)
     (machine
      (machine-stack m)
@@ -163,7 +162,7 @@
      target)))
 
 (provide tail-call)
-(define (tail-call target) (goto target))
+(define (tail-call target) (jump target))
 
 (provide store)
 (define (store count)
@@ -272,7 +271,7 @@
     (define without-ops (drop (machine-stack m) (length op-ids)))
     (define return (first without-ops))
     (define args (take (rest without-ops) nargs))
-    (define new-stack (drop (add1 nargs)))
+    (define new-stack (drop without-ops (add1 nargs)))
     (machine
      new-stack
      (cons (mark-frame args return ops after) (machine-frames m))
@@ -283,7 +282,121 @@
 (provide complete)
 (define (complete)
   (λ (m)
-    ))
+    (define h (first (machine-frames m)))
+    (machine
+     (machine-stack m)
+     (cons (fun-frame (append (mark-frame-args h) (closure-val-captured (mark-frame-return h)))
+                      (mark-frame-after-instr-ptr h))
+           (rest (machine-frames m)))
+     (machine-heap m)
+     (machine-instrs m)
+     (closure-val-body (mark-frame-return h)))))
+
+(provide escape)
+(define (escape op-name)
+  (λ (m)
+    (define h (find-handler (machine-frames m) op-name))
+    (define op (hash-ref (mark-frame-ops h) op-name))
+    (machine
+     null
+     (cons (fun-frame
+            (append (take (machine-stack m) (op-closure-val-nargs op))
+                    (op-closure-val-captured op))
+            (mark-frame-after-instr-ptr h))
+           (drop-to-handler (machine-frames m) op-name))
+     (machine-heap m)
+     (machine-instrs m)
+     (op-closure-val-body op))))
+
+(provide operation)
+(define (operation op-name)
+  (λ (m)
+    (define h (find-handler (machine-frames m) op-name))
+    (define op (hash-ref (mark-frame-ops h) op-name))
+    (define cont
+      (continuation
+       (add1 (machine-instr-ptr m))
+       (frames-to-handler (machine-frames m) op-name)
+       (drop (machine-stack m) (op-closure-val-nargs op))
+       (length (mark-frame-args h))))
+    (machine
+     null
+     (cons (fun-frame
+            (cons cont
+                  (append (take (machine-stack m) (op-closure-val-nargs op))
+                          (op-closure-val-captured op)))
+            (mark-frame-after-instr-ptr h))
+           (drop-to-handler (machine-frames m) op-name))
+     (machine-heap m)
+     (machine-instrs m)
+     (op-closure-val-body op))))
+
+(define (frames-to-handler frames op)
+  (cond
+    [(null? frames) (error "couldnt capture stack")]
+    [(handler-with-op? (first frames) op)
+     (list (first frames))]
+    [else (cons (first frames) (frames-to-handler (rest frames) op))]))
+       
+
+(define (find-handler frames op)
+  (cond
+    [(null? frames) (error "no frame found")]
+    [(handler-with-op? (first frames) op)
+     (first frames)]
+    [else
+     (find-handler (rest frames) op)]))
+
+(define (drop-to-handler frames op)
+  (cond
+    [(null? frames) (error "dropped all frames")]
+    [(handler-with-op? (first frames) op)
+     (rest frames)]
+    [else (drop-to-handler (rest frames))]))
+
+(define (handler-with-op? frame op)
+  (and (mark-frame? frame) (hash-has-key? (mark-frame-ops frame) op)))
+
+(provide call-continuation)
+(define (call-continuation)
+  (λ (m)
+    (define cont (first (machine-stack m)))
+    (define handler (last (continuation-captured-frames cont)))
+    (define args (take (rest (machine-stack m)) (continuation-nargs cont)))
+    (define new-handler
+      (mark-frame args
+                  (mark-frame-return handler)
+                  (mark-frame-ops handler)
+                  (add1 (machine-instr-ptr m))))
+    (machine
+     (append (drop (machine-stack m) (add1 (length args)))
+             (continuation-captured-stack cont))
+     (append (drop-right (continuation-captured-frames cont) 1)
+             (cons new-handler (machine-frames m)))
+     (machine-heap m)
+     (machine-instrs m)
+     (continuation-resume cont))))
+
+(provide tail-call-continuation)
+(define (tail-call-continuation)
+  (λ (m)
+    (define cont (first (machine-stack m)))
+    (define handler (last (continuation-captured-frames cont)))
+    (define args (take (rest (machine-stack m)) (continuation-nargs cont)))
+    (define new-handler
+      (mark-frame args
+                  (mark-frame-return handler)
+                  (mark-frame-ops handler)
+                  (fun-frame-ret-instr-ptr (first (machine-frames m)))))
+    (machine
+     (append (drop (machine-stack m) (add1 (length args)))
+             (continuation-captured-stack cont))
+     (append (drop-right (continuation-captured-frames cont) 1)
+             (cons new-handler (rest (machine-frames m))))
+     (machine-heap m)
+     (machine-instrs m)
+     (continuation-resume cont))))
+
         
 
 
@@ -294,6 +407,28 @@
     (define old-stack (machine-stack m))
     (machine
      (cons (+ (car old-stack) (cadr old-stack)) (cddr old-stack))
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (add1 (machine-instr-ptr m)))))
+
+(provide sub-i32)
+(define (sub-i32)
+  (lambda (m)
+    (define old-stack (machine-stack m))
+    (machine
+     (cons (- (car old-stack) (cadr old-stack)) (cddr old-stack))
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (add1 (machine-instr-ptr m)))))
+
+(provide div-i32)
+(define (div-i32)
+  (lambda (m)
+    (define old-stack (machine-stack m))
+    (machine
+     (cons (/ (car old-stack) (cadr old-stack)) (cddr old-stack))
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
