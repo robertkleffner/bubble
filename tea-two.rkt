@@ -1,5 +1,6 @@
 #lang br/quicklang
 
+(require racket/bool)
 (require uuid)
 
 (provide cons)
@@ -102,6 +103,7 @@
 
 (define (run m)
   (print-machine m)
+  (displayln "")
   (define iptr (machine-instr-ptr m))
   (cond
     [(< iptr (length (machine-instrs m)))
@@ -472,6 +474,70 @@
      (machine-instrs m)
      (add1 (machine-instr-ptr m)))))
 
+
+
+(provide list-nil)
+(define (list-nil)
+  (λ (m)
+    (machine
+     (cons null (machine-stack m))
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (add1 (machine-instr-ptr m)))))
+
+(provide list-cons)
+(define (list-cons)
+  (λ (m)
+    (machine
+     (cons (cons (first (machine-stack m)) (second (machine-stack m)))
+           (rest (rest (machine-stack m))))
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (add1 (machine-instr-ptr m)))))
+
+(provide list-head)
+(define (list-head)
+  (λ (m)
+    (machine
+     (cons (first (first (machine-stack m))) (machine-stack m))
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (add1 (machine-instr-ptr m)))))
+
+(provide list-tail)
+(define (list-tail)
+  (λ (m)
+    (machine
+     (cons (rest (first (machine-stack m))) (machine-stack m))
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (add1 (machine-instr-ptr m)))))
+
+(provide list-append)
+(define (list-append)
+  (λ (m)
+    (machine
+     (cons (append (first (machine-stack m)) (second (machine-stack m)))
+           (rest (rest (machine-stack m))))
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (add1 (machine-instr-ptr m)))))
+
+(provide list-empty)
+(define (list-empty)
+  (λ (m)
+    (machine
+     (cons (null? (first (machine-stack m))) (machine-stack m))
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (add1 (machine-instr-ptr m)))))
+
         
 
 
@@ -483,6 +549,10 @@
 (provide bool-or)
 (define (bool-or)
   (binary-instr (λ (l r) (or l r))))
+
+(provide bool-xor)
+(define (bool-xor)
+  (binary-instr xor))
 
 (provide bool-not)
 (define (bool-not)
