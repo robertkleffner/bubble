@@ -305,6 +305,7 @@
      null
      (cons (fun-frame
             (append (take (machine-stack m) (op-closure-val-nargs op))
+                    (mark-frame-args h)
                     (op-closure-val-captured op))
             (mark-frame-after-instr-ptr h))
            (drop-to-handler (machine-frames m) op-name))
@@ -328,6 +329,7 @@
      (cons (fun-frame
             (cons cont
                   (append (take (machine-stack m) (op-closure-val-nargs op))
+                          (mark-frame-args h)
                           (op-closure-val-captured op)))
             (mark-frame-after-instr-ptr h))
            (drop-to-handler (machine-frames m) op-name))
@@ -356,7 +358,7 @@
     [(null? frames) (error "dropped all frames")]
     [(handler-with-op? (first frames) op)
      (rest frames)]
-    [else (drop-to-handler (rest frames))]))
+    [else (drop-to-handler (rest frames) op)]))
 
 (define (handler-with-op? frame op)
   (and (mark-frame? frame) (hash-has-key? (mark-frame-ops frame) op)))
@@ -497,6 +499,17 @@
      (machine-instrs m)
      (add1 (machine-instr-ptr m)))))
 
+(provide list-snoc)
+(define (list-snoc)
+  (λ (m)
+    (machine
+     (cons (append (second (machine-stack m)) (list (first (machine-stack m))))
+           (rest (rest (machine-stack m))))
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (add1 (machine-instr-ptr m)))))
+
 (provide list-head)
 (define (list-head)
   (λ (m)
@@ -507,11 +520,31 @@
      (machine-instrs m)
      (add1 (machine-instr-ptr m)))))
 
+(provide list-last)
+(define (list-last)
+  (λ (m)
+    (machine
+     (cons (last (first (machine-stack m))) (machine-stack m))
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (add1 (machine-instr-ptr m)))))
+
 (provide list-tail)
 (define (list-tail)
   (λ (m)
     (machine
      (cons (rest (first (machine-stack m))) (machine-stack m))
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (add1 (machine-instr-ptr m)))))
+
+(provide list-init)
+(define (list-init)
+  (λ (m)
+    (machine
+     (cons (take (first (machine-stack m)) (sub1 (length (first (machine-stack m))))) (machine-stack m))
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
