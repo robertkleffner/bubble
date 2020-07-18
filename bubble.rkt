@@ -87,7 +87,7 @@
 
 
 
-(define-macro (tea-vm-mb EXPR ...)
+(define-macro (bubble-vm-mb EXPR ...)
   #'(#%module-begin
      (define res
        (run
@@ -99,7 +99,7 @@
          0)))
      (displayln (machine-stack res))))
 
-(provide (rename-out [tea-vm-mb #%module-begin]))
+(provide (rename-out [bubble-vm-mb #%module-begin]))
 
 (define (run m)
   (print-machine m)
