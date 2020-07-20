@@ -85,6 +85,12 @@
    )
   #:transparent)
 
+(struct ctor-val
+  (id ;; int
+   args ;; list value
+   )
+  #:transparent)
+
 
 
 (define-macro (bubble-vm-mb EXPR ...)
@@ -443,6 +449,30 @@
          target
          (add1 (machine-instr-ptr m))))))
 
+(provide jump-zero)
+(define (jump-zero target)
+  (λ (m)
+    (machine
+     (machine-stack m)
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (if (zero? (first (machine-stack m)))
+         target
+         (add1 (machine-instr-ptr m))))))
+
+(provide jump-struct)
+(define (jump-struct ctor-id target)
+  (λ (m)
+    (machine
+     (machine-stack m)
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (if (equal? ctor-id (ctor-val-id (first (machine-stack m))))
+         target
+         (add1 (machine-instr-ptr m))))))
+
 
 
 (provide newref)
@@ -473,6 +503,40 @@
      (rest (machine-stack m))
      (machine-frames m)
      (hash-set (machine-heap m) (second (machine-stack m)) (first (machine-stack m)))
+     (machine-instrs m)
+     (add1 (machine-instr-ptr m)))))
+
+
+
+(provide construct)
+(define (construct ctor-id nargs)
+  (λ (m)
+    (machine
+     (cons (ctor-val ctor-id (take (machine-stack m) nargs))
+           (drop (machine-stack m) nargs))
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (add1 (machine-instr-ptr m)))))
+
+(provide destruct)
+(define (destruct)
+  (λ (m)
+    (machine
+     (append (ctor-val-args (first (machine-stack m))) (machine-stack m))
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (add1 (machine-instr-ptr m)))))
+
+(provide is-struct)
+(define (is-struct ctor-id)
+  (λ (m)
+    (machine
+     (cons (equal? ctor-id (ctor-val-id (first (machine-stack m))))
+           (machine-stack m))
+     (machine-frames m)
+     (machine-heap m)
      (machine-instrs m)
      (add1 (machine-instr-ptr m)))))
 
