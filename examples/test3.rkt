@@ -1,21 +1,33 @@
 #lang s-exp "../bubble.rkt"
 
-(call 2)
-(jump 14)
+; main =
+;   2 handle {
+;     2 4 add-i32
+;   } with {
+;     return => 1 add-i32
+;   }
+;   sub
 
-(push 2)
-(closure 11)
-(handle 9 0)
-(push 2)
-(push 4)
-(add-i32)
-(complete)
+(call 'main)
+(jump 'end)
 
-(sub-i32)
-(return)
+(label 'main
+       (push 2)
+       (closure 'ret1)
+       (handle 'aft1 0)
+       (push 2)
+       (push 4)
+       (add-i32)
+       (complete))
 
-(push 1)
-(add-i32)
-(return)
+(label 'aft1
+       (sub-i32)
+       (return))
 
-(nop)
+(label 'ret1
+       (push 1)
+       (add-i32)
+       (return))
+
+(label 'end
+       (nop))

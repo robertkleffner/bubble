@@ -1,16 +1,25 @@
 #lang s-exp "../bubble.rkt"
 
-(call 2)
-(jump 9)
+; main =
+;   let x = 1 in
+;   let y = x 2 add-i32 in
+;   y
 
-(tail-call 3)
+(call 'main)
+(jump 'end)
 
-(call 7)
-(push 2)
-(add-i32)
-(return)
+(label 'main
+       (tail-call 'y))
 
-(push 1)
-(return)
+(label 'y
+       (call 'x)
+       (push 2)
+       (add-i32)
+       (return))
 
-(nop)
+(label 'x
+       (push 1)
+       (return))
+
+(label 'end
+       (nop))

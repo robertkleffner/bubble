@@ -1,21 +1,25 @@
 #lang s-exp "../bubble.rkt"
 
-(call 2)
-(jump 14)
+(call 'main)
+(jump 'end)
 
-(push 2)
-(closure 8)
-(handle 7 1)
-(push 1)
-(complete)
+(label 'main
+       (push 2)
+       (closure 'ret1)
+       (handle 'aft1 1)
+       (push 1)
+       (complete))
 
-(return)
+(label 'aft1
+       (return))
 
-(list-nil)
-(shuffle 2 1 0)
-(list-cons)
-(find 0 0)
-(list-cons)
-(return)
+(label 'ret1
+       (list-nil)
+       (shuffle 2 1 0)
+       (list-cons)
+       (find 0 0)
+       (list-cons)
+       (return))
 
-(nop)
+(label 'end
+       (nop))

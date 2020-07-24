@@ -11,6 +11,7 @@
    frames ;; list vars|frame|mark
    heap   ;; hash guid value
    instrs ;; list function
+   labels ;; hash symbol int
    instr-ptr ;; int
    )
   #:transparent)
@@ -93,6 +94,12 @@
 
 
 
+(struct block (name instrs) #:transparent)
+
+(provide label)
+(define (label name . instrs)
+  (block name instrs))
+
 (define-macro (bubble-vm-mb EXPR ...)
   #'(#%module-begin
      (define res
@@ -101,7 +108,8 @@
          (list)
          (list)
          (make-immutable-hash)
-         (list EXPR ...)
+         (flatten-blocks (list EXPR ...))
+         (map-blocks (list EXPR ...))
          0)))
      (displayln (machine-stack res))))
 
@@ -117,6 +125,33 @@
      (run (instr m))]
     [else m]))
 
+(define (flatten-blocks instrs)
+  (cond
+    [(null? instrs) null]
+    [(block? (first instrs))
+     (append (block-instrs (first instrs))
+             (flatten-blocks (rest instrs)))]
+    [else
+     (cons (first instrs)
+           (flatten-blocks (rest instrs)))]))
+
+(define (map-blocks instrs)
+  (define (map-blocks-rec instrs map instr-ptr)
+    (cond
+      [(null? instrs) map]
+      [(block? (first instrs))
+       (map-blocks-rec (rest instrs)
+                       (hash-set map (block-name (first instrs)) instr-ptr)
+                       (+ (length (block-instrs (first instrs))) instr-ptr))]
+      [else
+       (map-blocks-rec (rest instrs) map (add1 instr-ptr))]))
+  (map-blocks-rec instrs (hash) 0))
+
+(define (get-ptr target m)
+  (if (symbol? target)
+      (hash-ref (machine-labels m) target)
+      target))
+
 
 
 (provide nop)
@@ -127,6 +162,7 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 (provide push)
@@ -137,6 +173,7 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 (provide jump)
@@ -147,7 +184,8 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
-     target)))
+     (machine-labels m)
+     (get-ptr target m))))
 
 (provide return)
 (define (return)
@@ -158,6 +196,7 @@
      (rest (machine-frames m))
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (fun-frame-ret-instr-ptr target))))
 
 (provide call)
@@ -169,7 +208,8 @@
            (machine-frames m))
      (machine-heap m)
      (machine-instrs m)
-     target)))
+     (machine-labels m)
+     (get-ptr target m))))
 
 (provide tail-call)
 (define (tail-call target) (jump target))
@@ -182,6 +222,7 @@
      (cons (var-frame (take (machine-stack m) count)) (machine-frames m))
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 (provide forget)
@@ -192,6 +233,7 @@
      (rest (machine-frames m))
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 (provide find)
@@ -202,6 +244,7 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 (provide call-closure)
@@ -214,6 +257,7 @@
            (machine-frames m))
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (closure-val-body fn))))
 
 (provide tail-call-closure)
@@ -226,6 +270,7 @@
            (rest (machine-frames m)))
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (closure-val-body fn))))
 
 (provide closure)
@@ -235,10 +280,11 @@
       (for/list ([p vars])
         (value-in-frame m (car p) (cdr p))))
     (machine
-     (cons (closure-val body captured) (machine-stack m))
+     (cons (closure-val (get-ptr body m) captured) (machine-stack m))
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 (provide recursive)
@@ -247,13 +293,14 @@
     (define captured
       (for/list ([p vars])
         (value-in-frame m (car p) (cdr p))))
-    (define closed (closure-val body captured))
+    (define closed (closure-val (get-ptr body m) captured))
     (set-closure-val-captured! closed (cons closed captured))
     (machine
      (cons closed (machine-stack m))
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 
@@ -265,10 +312,11 @@
       (for/list ([p vars])
         (value-in-frame m (car p) (cdr p))))
     (machine
-     (cons (op-closure-val body captured nargs) (machine-stack m))
+     (cons (op-closure-val (get-ptr body m) captured nargs) (machine-stack m))
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 (provide handle)
@@ -284,9 +332,10 @@
     (define new-stack (drop without-ops (add1 nargs)))
     (machine
      new-stack
-     (cons (mark-frame args return ops after) (machine-frames m))
+     (cons (mark-frame args return ops (get-ptr after m)) (machine-frames m))
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 (provide complete)
@@ -300,6 +349,7 @@
            (rest (machine-frames m)))
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (closure-val-body (mark-frame-return h)))))
 
 (provide escape)
@@ -317,6 +367,7 @@
            (drop-to-handler (machine-frames m) op-name))
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (op-closure-val-body op))))
 
 (provide operation)
@@ -341,6 +392,7 @@
            (drop-to-handler (machine-frames m) op-name))
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (op-closure-val-body op))))
 
 (define (frames-to-handler frames op)
@@ -387,6 +439,7 @@
              (cons new-handler (machine-frames m)))
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (continuation-resume cont))))
 
 (provide tail-call-continuation)
@@ -407,6 +460,7 @@
              (cons new-handler (rest (machine-frames m))))
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (continuation-resume cont))))
 
 
@@ -421,6 +475,7 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 
@@ -433,8 +488,9 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (if (first (machine-stack m))
-         target
+         (get-ptr target m)
          (add1 (machine-instr-ptr m))))))
 
 (provide jump-if-not)
@@ -445,8 +501,9 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (if (not (first (machine-stack m)))
-         target
+         (get-ptr target m)
          (add1 (machine-instr-ptr m))))))
 
 (provide jump-zero)
@@ -457,8 +514,9 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (if (zero? (first (machine-stack m)))
-         target
+         (get-ptr target m)
          (add1 (machine-instr-ptr m))))))
 
 (provide jump-struct)
@@ -469,8 +527,9 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (if (equal? ctor-id (ctor-val-id (first (machine-stack m))))
-         target
+         (get-ptr target m)
          (add1 (machine-instr-ptr m))))))
 
 
@@ -484,6 +543,7 @@
      (machine-frames m)
      (hash-set (machine-heap m) ref (first (machine-stack m)))
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 (provide getref)
@@ -494,6 +554,7 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 (provide putref)
@@ -504,6 +565,7 @@
      (machine-frames m)
      (hash-set (machine-heap m) (second (machine-stack m)) (first (machine-stack m)))
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 
@@ -517,6 +579,7 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 (provide destruct)
@@ -527,6 +590,7 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 (provide is-struct)
@@ -538,6 +602,7 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 
@@ -550,18 +615,12 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 (provide list-cons)
 (define (list-cons)
-  (λ (m)
-    (machine
-     (cons (cons (first (machine-stack m)) (second (machine-stack m)))
-           (rest (rest (machine-stack m))))
-     (machine-frames m)
-     (machine-heap m)
-     (machine-instrs m)
-     (add1 (machine-instr-ptr m)))))
+  (binary-instr cons))
 
 (provide list-snoc)
 (define (list-snoc)
@@ -572,6 +631,7 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 (provide list-head)
@@ -582,6 +642,7 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 (provide list-last)
@@ -592,6 +653,7 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 (provide list-tail)
@@ -602,6 +664,7 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 (provide list-init)
@@ -612,18 +675,12 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 (provide list-append)
 (define (list-append)
-  (λ (m)
-    (machine
-     (cons (append (first (machine-stack m)) (second (machine-stack m)))
-           (rest (rest (machine-stack m))))
-     (machine-frames m)
-     (machine-heap m)
-     (machine-instrs m)
-     (add1 (machine-instr-ptr m)))))
+  (binary-instr append))
 
 (provide list-empty)
 (define (list-empty)
@@ -633,6 +690,7 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
         
@@ -679,6 +737,7 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
 (define (binary-instr op)
@@ -689,4 +748,5 @@
      (machine-frames m)
      (machine-heap m)
      (machine-instrs m)
+     (machine-labels m)
      (add1 (machine-instr-ptr m)))))
