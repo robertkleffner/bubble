@@ -18,11 +18,9 @@
        (closure 'ret1)
        (op-closure 'put1 1)
        (op-closure 'get1 0)
-       (handle 'aft1 1 'get! 'put!)
+       (handle 3 1 'get! 'put!)
        (call 'counter)
-       (complete))
-
-(label 'aft1
+       (complete)
        (return))
 
 (label 'get1

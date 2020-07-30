@@ -14,15 +14,13 @@
 (label 'main
        (closure 'ret1)
        (op-closure 'raise1 1)
-       (handle 'aft1 0 'raise!)
+       (handle 7 0 'raise!)
        (push 3)
        (push 4)
        (operation 'raise!)
        (push 6)
        (div-i32)
-       (complete))
-
-(label 'aft1
+       (complete)
        (add-i32)
        (return))
 

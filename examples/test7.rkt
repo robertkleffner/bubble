@@ -6,11 +6,9 @@
 (label 'main
        (push 2)
        (closure 'ret1)
-       (handle 'aft1 1)
+       (handle 3 1)
        (push 1)
-       (complete))
-
-(label 'aft1
+       (complete)
        (return))
 
 (label 'ret1

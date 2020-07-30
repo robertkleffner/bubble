@@ -332,7 +332,8 @@
     (define new-stack (drop without-ops (add1 nargs)))
     (machine
      new-stack
-     (cons (mark-frame args return ops (get-ptr after m)) (machine-frames m))
+     (cons (mark-frame args return ops (+ after (machine-instr-ptr m)))
+           (machine-frames m))
      (machine-heap m)
      (machine-instrs m)
      (machine-labels m)

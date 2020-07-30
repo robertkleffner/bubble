@@ -14,13 +14,11 @@
 (label 'main
        (push 2)
        (closure 'ret1)
-       (handle 'aft1 0)
+       (handle 5 0)
        (push 2)
        (push 4)
        (add-i32)
-       (complete))
-
-(label 'aft1
+       (complete)
        (sub-i32)
        (return))
 

@@ -18,26 +18,25 @@
 (label 'main
        (closure 'ret1)
        (op-closure 'raise1 1)
-       (handle 'aft1 0 'raise!)
+       (handle 6 0 'raise!)
        (push 1)
        (operation 'raise!)
        (push 3)
        (add-i32)
-       (complete))
-
-(label 'aft1
+       (complete)
        (return))
 
 (label 'raise1
        (closure 'ret2)
        (op-closure 'raise2 1 (cons 0 1))
-       (handle 'aft1 0 'raise!)
+       (handle 7 0 'raise!)
        (push 2)
        (find 1 0)
        (call-continuation)
        (operation 'raise!)
        (sub-i32)
-       (complete))
+       (complete)
+       (return))
 
 (label 'raise2
        (find 0 2)

@@ -14,13 +14,11 @@
 (label 'main
        (closure 'ret1)
        (op-closure 'flip1 0)
-       (handle 'aft1 0 'flip!)
+       (handle 5 0 'flip!)
        (operation 'flip!)
        (operation 'flip!)
        (bool-xor)
-       (complete))
-
-(label 'aft1
+       (complete)
        (return))
 
 (label 'flip1
