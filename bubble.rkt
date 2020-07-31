@@ -303,6 +303,14 @@
      (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
+(provide mutual)
+(define (mutual nrec)
+  (λ (m)
+    (define m-closures (take (machine-stack m) nrec))
+    (for ([c m-closures])
+      (set-closure-val-captured! c (append m-closures (closure-val-captured c))))
+    m))
+
 
 
 (provide op-closure)
