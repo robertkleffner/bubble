@@ -543,6 +543,60 @@
 
 
 
+(provide offset-if)
+(define (offset-if offset)
+  (λ (m)
+    (machine
+     (machine-stack m)
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (machine-labels m)
+     (if (first (machine-stack m))
+         (+ offset (machine-instr-ptr m))
+         (add1 (machine-instr-ptr m))))))
+
+(provide offset-if-not)
+(define (offset-if-not offset)
+  (λ (m)
+    (machine
+     (machine-stack m)
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (machine-labels m)
+     (if (not (first (machine-stack m)))
+         (+ offset (machine-instr-ptr m))
+         (add1 (machine-instr-ptr m))))))
+
+(provide offset-zero)
+(define (offset-zero offset)
+  (λ (m)
+    (machine
+     (machine-stack m)
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (machine-labels m)
+     (if (zero? (first (machine-stack m)))
+         (+ offset (machine-instr-ptr m))
+         (add1 (machine-instr-ptr m))))))
+
+(provide offset-struct)
+(define (offset-struct ctor-id offset)
+  (λ (m)
+    (machine
+     (machine-stack m)
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (machine-labels m)
+     (if (equal? ctor-id (ctor-val-id (first (machine-stack m))))
+         (+ offset (machine-instr-ptr m))
+         (add1 (machine-instr-ptr m))))))
+
+
+
 (provide newref)
 (define (newref)
   (λ (m)
