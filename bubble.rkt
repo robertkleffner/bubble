@@ -187,6 +187,17 @@
      (machine-labels m)
      (get-ptr target m))))
 
+(provide offset)
+(define (offset rel)
+  (λ (m)
+    (machine
+     (machine-stack m)
+     (machine-frames m)
+     (machine-heap m)
+     (machine-instrs m)
+     (machine-labels m)
+     (+ rel (machine-instr-ptr m)))))
+
 (provide return)
 (define (return)
   (λ (m)
@@ -361,6 +372,7 @@
      (machine-labels m)
      (closure-val-body (mark-frame-return h)))))
 
+; slightly optimized variant of 'operation', does not capture the continuation
 (provide escape)
 (define (escape op-name)
   (λ (m)
