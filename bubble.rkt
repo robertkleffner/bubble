@@ -236,6 +236,19 @@
      (machine-labels m)
      (add1 (machine-instr-ptr m)))))
 
+(provide overwrite)
+(define (overwrite frame index)
+  (λ (m)
+    (define old-frame (list-ref (machine-frames m) frame))
+    (define new-frame (list-set old-frame index (first (machine-stack m))))
+    (machine
+     (rest (machine-stack m))
+     (list-set (machine-frames m) frame new-frame)
+     (machine-heap m)
+     (machine-instrs m)
+     (machine-labels m)
+     (add1 (machine-instr-ptr m)))))
+
 (provide forget)
 (define (forget)
   (λ (m)
